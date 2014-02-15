@@ -3,6 +3,7 @@
 
     <string name="app_name">GuardianAngel</string>
     <string name="action_settings">Settings</string>
-    <string name="hello_world">Hello world!</string>
-
+    
+    <string name="guardian_voice_trigger">post an update</string>
+    <string name="guardian_voice_prompt">My surrounding is...</string>
 </resources>
