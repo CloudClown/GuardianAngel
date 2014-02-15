@@ -33,26 +33,29 @@ import android.widget.Toast;
 import com.firebase.client.Firebase;
 
 public class GuardianAngelMain extends Activity implements 
-	GestureDetector.OnGestureListener, 
-	Camera.OnZoomChangeListener,
-	SensorEventListener,
-	LocationListener {
+                                                    GestureDetector.OnGestureListener, 
+                                                    Camera.OnZoomChangeListener,
+                                                    SensorEventListener,
+                                                    LocationListener {
 
-	public static String TAG = "GuardianCam";
-	public static float FULL_DISTANCE = 8000.0f;
-	//unique android ID
-	private String android_id;
+    public static String TAG = "GuardianCam";
+    public static float FULL_DISTANCE = 8000.0f;
+    //unique android ID
+    private String android_id;
 
-	//sensor and location variables
-	private SensorManager mSensorManager;
+    //Sound and Noise Metric
+    private NoiseMetric nMetric;
+    
+    //sensor and location variables
+    private SensorManager mSensorManager;
     private LocationManager mLocationManager;
     private String mLocationProvider;
     private double mLatitude, mLongitude, mAltitude;
-	//danger level
+    //danger level
     private int dangerLevel = 1;
     
-	//camera variables
-	private SurfaceView mPreview;
+    //camera variables
+    private SurfaceView mPreview;
     private SurfaceHolder mPreviewHolder;
     private Camera mCamera;
     private boolean mInPreview = false;
@@ -77,34 +80,37 @@ public class GuardianAngelMain extends Activity implements
         startActivityForResult(intent, SPEECH_REQUEST);
     }
 
+    //send request to the server
     private void sendGet() throws Exception {
-		String url = "http://guardianangel.herokuapp.com/inform/"+android_id.toString();
+        String url = "http://guardianangel.herokuapp.com/inform/"+android_id.toString();
  
-		URL obj = new URL(url);
-		HttpURLConnection con = (HttpURLConnection) obj.openConnection();
-		//Toast.makeText(this	,"sending request!!", Toast.LENGTH_SHORT).show();
-		// optional default is GET
-		con.setRequestMethod("GET");
- 
-		//add request header
-		String USER_AGENT = "Mozilla/5.0";
-		con.setRequestProperty("User-Agent", USER_AGENT);
+        Toast.makeText(this	,"Emergency Contact Initialized!", Toast.LENGTH_SHORT).show();
+        
+        URL obj = new URL(url);
+        HttpURLConnection con = (HttpURLConnection) obj.openConnection();
+        //Toast.makeText(this	,"sending request!!", Toast.LENGTH_SHORT).show();
+        // optional default is GET
+        con.setRequestMethod("GET");
+        
+        //add request header
+        String USER_AGENT = "Mozilla/5.0";
+        con.setRequestProperty("User-Agent", USER_AGENT);
 		
-		int responseCode = con.getResponseCode();
-		System.out.println("\nSending 'GET' request to URL : " + url);
-		System.out.println("Response Code : " + responseCode);
-		Toast.makeText(this	,"sending request!!", Toast.LENGTH_SHORT).show();
-		//Toast.makeText(this	,responseCode, Toast.LENGTH_SHORT).show();
+        int responseCode = con.getResponseCode();
+        System.out.println("\nSending 'GET' request to URL : " + url);
+        System.out.println("Response Code : " + responseCode);
+        
+        Toast.makeText(this	,"Emergency Contact Status:" + responseCode, Toast.LENGTH_SHORT).show();
 		
-	}
+    }
     
     //process the recognized texts
     @Override
     protected void onActivityResult(int requestCode, int resultCode,
-            Intent data) {
+                                        Intent data) {
         if (requestCode == SPEECH_REQUEST && resultCode == RESULT_OK) {
             List<String> results = data.getStringArrayListExtra(
-                    RecognizerIntent.EXTRA_RESULTS);
+                                                                RecognizerIntent.EXTRA_RESULTS);
             String spokenText = results.get(0);
             // Do something with spokenText.
             //Toast.makeText(this, spokenText+spokenText+spokenText, Toast.LENGTH_SHORT).show();
@@ -115,11 +121,11 @@ public class GuardianAngelMain extends Activity implements
             	sendToDatabase();
             	try {
             		
-					sendGet();
-				} catch (Exception e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
+                    sendGet();
+                } catch (Exception e) {
+                    // TODO Auto-generated catch block
+                    e.printStackTrace();
+                }
             }
         }
         super.onActivityResult(requestCode, resultCode, data);
@@ -136,7 +142,7 @@ public class GuardianAngelMain extends Activity implements
         mPreviewHolder.addCallback(surfaceCallback);
         
         android_id = Secure.getString(getBaseContext().getContentResolver(),
-                Secure.ANDROID_ID);
+                                      Secure.ANDROID_ID);
         
         //mZoomLevelView = (TextView)findViewById(R.id.zoomLevel);
         mGestureDetector = new GestureDetector(this, this);
@@ -156,17 +162,17 @@ public class GuardianAngelMain extends Activity implements
         mLocationProvider = mLocationManager.getBestProvider(new Criteria(), false);
         Location location = mLocationManager.getLastKnownLocation(mLocationProvider);
         if (location != null) {
-        	onLocationChanged(location);
+            onLocationChanged(location);
         }
         
         try {
-        	//firebase
-        	fireref = new Firebase(firebaseIP+"/"+android_id);
+            //firebase
+            fireref = new Firebase(firebaseIP+"/"+android_id);
         } catch (Throwable t) {
         	
-        	Toast.makeText(this, "database connection error!", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "database connection error!", Toast.LENGTH_SHORT).show();
         }
-	}
+    }
 
     //activity status callbacks
     @Override
@@ -198,62 +204,62 @@ public class GuardianAngelMain extends Activity implements
 
     private void initPreview(int width, int height) 
     {
-       if ( mCamera != null && mPreviewHolder.getSurface() != null) {
+        if ( mCamera != null && mPreviewHolder.getSurface() != null) {
             try 
-            {
-            	Camera.Parameters params = mCamera.getParameters();
-                params.setPreviewFpsRange(30000, 30000);
-                mCamera.setParameters(params);
-            	mCamera.setPreviewDisplay(mPreviewHolder);
-            }
+                {
+                    Camera.Parameters params = mCamera.getParameters();
+                    params.setPreviewFpsRange(30000, 30000);
+                    mCamera.setParameters(params);
+                    mCamera.setPreviewDisplay(mPreviewHolder);
+                }
             catch (Throwable t) 
-            {
-                Log.e(TAG, "Exception in initPreview()", t);
-                Toast.makeText(GuardianAngelMain.this, t.getMessage(), Toast.LENGTH_LONG).show();
-            }
+                {
+                    Log.e(TAG, "Exception in initPreview()", t);
+                    Toast.makeText(GuardianAngelMain.this, t.getMessage(), Toast.LENGTH_LONG).show();
+                }
 
             if ( !mCameraConfigured ) 
-            {
-                Camera.Parameters parameters = mCamera.getParameters();
-                parameters.setPreviewSize(1920, 1080); // hard coded the largest size for now
-                mCamera.setParameters(parameters);
-                mCamera.setZoomChangeListener(this);
-                mCameraConfigured = true;
-            }
+                {
+                    Camera.Parameters parameters = mCamera.getParameters();
+                    parameters.setPreviewSize(1920, 1080); // hard coded the largest size for now
+                    mCamera.setParameters(parameters);
+                    mCamera.setZoomChangeListener(this);
+                    mCameraConfigured = true;
+                }
         }
     }
 
     private void startPreview() 
     {
         if ( mCameraConfigured && mCamera != null ) 
-        {
-            mCamera.startPreview();
-            mInPreview = true;
+            {
+                mCamera.startPreview();
+                mInPreview = true;
             
-        }
+            }
     }
 
     
     SurfaceHolder.Callback surfaceCallback = new SurfaceHolder.Callback() {
-        public void surfaceCreated( SurfaceHolder holder ) 
-        {
+            public void surfaceCreated( SurfaceHolder holder ) 
+            {
         	// nothing
-        }
+            }
 
-        public void surfaceChanged( SurfaceHolder holder, int format, int width, int height ) 
-        {
+            public void surfaceChanged( SurfaceHolder holder, int format, int width, int height ) 
+            {
         	surfWidth = width;
         	surfHeight = height;
         	Log.d("Surface Changed!!!!!", "Surface Changed!!!");
         	initPreview(width, height);
-            startPreview();
-        }
+                startPreview();
+            }
 
-        public void surfaceDestroyed( SurfaceHolder holder ) 
-        {
-            // nothing
-        }
-    };
+            public void surfaceDestroyed( SurfaceHolder holder ) 
+            {
+                // nothing
+            }
+        };
 
     @Override
     public boolean onGenericMotionEvent(MotionEvent event) 
@@ -262,131 +268,131 @@ public class GuardianAngelMain extends Activity implements
         return true;
     }
 
-	@Override
+    @Override
 	public boolean onDown(MotionEvent e) 
-	{
-		// TODO Auto-generated method stub
-		return false;
-	}
+    {
+        // TODO Auto-generated method stub
+        return false;
+    }
 
-	@Override
+    @Override
 	public boolean onFling( MotionEvent e1, MotionEvent e2, float velocityX, float velocityY ) 
-	{
-		Camera.Parameters parameters = mCamera.getParameters();
-		int zoom = parameters.getZoom();
+    {
+        Camera.Parameters parameters = mCamera.getParameters();
+        int zoom = parameters.getZoom();
 
-		/*
-		if ( velocityX < 0.0f )
-		{
-			zoom -= 10;
-			if ( zoom < 0 )
-				zoom = 0;
-		}
-		else if ( velocityX > 0.0f )
-		{
-			zoom += 10;
-			if ( zoom > parameters.getMaxZoom() )
-				zoom = parameters.getMaxZoom();
-		}
-		*/
+        /*
+          if ( velocityX < 0.0f )
+          {
+          zoom -= 10;
+          if ( zoom < 0 )
+          zoom = 0;
+          }
+          else if ( velocityX > 0.0f )
+          {
+          zoom += 10;
+          if ( zoom > parameters.getMaxZoom() )
+          zoom = parameters.getMaxZoom();
+          }
+        */
 
-		//start speech recognition
-		displaySpeechRecognizer();
+        //start speech recognition
+        displaySpeechRecognizer();
 
-		mCamera.startSmoothZoom(zoom);
+        mCamera.startSmoothZoom(zoom);
 
-		return false;
-	}
+        return false;
+    }
 
-	@Override
+    @Override
 	public void onLongPress(MotionEvent e) 
-	{
-		// TODO Auto-generated method stub
-	}
+    {
+        // TODO Auto-generated method stub
+    }
 
-	@Override
+    @Override
 	public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) 
-	{
-		//Log.d(TAG, "distanceX: " + distanceX + ", distanceY: " + distanceY);
-		return false;
-	}
+    {
+        //Log.d(TAG, "distanceX: " + distanceX + ", distanceY: " + distanceY);
+        return false;
+    }
 
-	@Override
+    @Override
 	public void onShowPress(MotionEvent e) 
-	{
-		// TODO Auto-generated method stub
-	}
+    {
+        // TODO Auto-generated method stub
+    }
 
-	private void sendToDatabase() {
-		try {
-			Map<String, Object> toSet = new HashMap<String, Object>();
-			Map<String, Object> val = new HashMap<String, Object>();
-			val.put("dangerLevel", dangerLevel);
-			val.put("latitude", mLatitude);
-			val.put("longitude", mLongitude);
-			toSet.put(android_id, val);
-			fireref.setValue(val);
-		} catch (Throwable t) {
-			Toast.makeText(this, "sending data failed", Toast.LENGTH_SHORT).show();
-		}
-	};
+    private void sendToDatabase() {
+        try {
+            Map<String, Object> toSet = new HashMap<String, Object>();
+            Map<String, Object> val = new HashMap<String, Object>();
+            val.put("dangerLevel", dangerLevel);
+            val.put("latitude", mLatitude);
+            val.put("longitude", mLongitude);
+            toSet.put(android_id, val);
+            fireref.setValue(val);
+        } catch (Throwable t) {
+            Toast.makeText(this, "sending data failed", Toast.LENGTH_SHORT).show();
+        }
+    };
 
-	@Override
+    @Override
 	public boolean onSingleTapUp(MotionEvent e) 
-	{
-		//tap to show user ID
-		Toast toast = Toast.makeText(this, 
-				"Your User ID is:"+android_id
-				, Toast.LENGTH_SHORT);
+    {
+        //tap to show user ID
+        Toast toast = Toast.makeText(this, 
+                                     "Your User ID is:"+android_id
+                                     , Toast.LENGTH_SHORT);
         toast.show();
         //sendToDatabase();
-		return false;
-	}
+        return false;
+    }
 
-	@Override
+    @Override
 	public void onZoomChange(int zoomValue, boolean stopped, Camera camera) {
-		//mZoomLevelView.setText("ZOOM: " + zoomValue);
+        //mZoomLevelView.setText("ZOOM: " + zoomValue);
 
-	}
+    }
 
-	@Override
+    @Override
 	public void onLocationChanged(Location loc) {
-		//update longitude status
-		mLatitude = loc.getLatitude();
-		mLongitude = loc.getLongitude();
-		mAltitude = loc.getAltitude();
+        //update longitude status
+        mLatitude = loc.getLatitude();
+        mLongitude = loc.getLongitude();
+        mAltitude = loc.getAltitude();
 
-	}
+    }
 
-	@Override
+    @Override
 	public void onProviderDisabled(String arg0) {
-		// TODO Auto-generated method stub
+        // TODO Auto-generated method stub
 
-	}
+    }
 
-	@Override
+    @Override
 	public void onProviderEnabled(String arg0) {
-		// TODO Auto-generated method stub
+        // TODO Auto-generated method stub
 
-	}
+    }
 
-	@Override
+    @Override
 	public void onStatusChanged(String arg0, int arg1, Bundle arg2) {
-		// TODO Auto-generated method stub
+        // TODO Auto-generated method stub
 
-	}
+    }
 
-	@Override
+    @Override
 	public void onAccuracyChanged(Sensor arg0, int arg1) {
-		// TODO Auto-generated method stub
+        // TODO Auto-generated method stub
 
-	}
+    }
 
-	@Override
+    @Override
 	public void onSensorChanged(SensorEvent arg0) {
-		// TODO Auto-generated method stub
+        // TODO Auto-generated method stub
 
-	}
+    }
 
     
 }
