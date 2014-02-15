@@ -1,5 +1,7 @@
 package org.project.guardianangel;
 
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -40,7 +42,7 @@ public class GuardianAngelMain extends Activity implements
 	public static float FULL_DISTANCE = 8000.0f;
 	//unique android ID
 	private String android_id;
-	
+
 	//sensor and location variables
 	private SensorManager mSensorManager;
     private LocationManager mLocationManager;
@@ -75,6 +77,26 @@ public class GuardianAngelMain extends Activity implements
         startActivityForResult(intent, SPEECH_REQUEST);
     }
 
+    private void sendGet() throws Exception {
+		String url = "http://guardianangel.herokuapp.com/inform/"+android_id.toString();
+ 
+		URL obj = new URL(url);
+		HttpURLConnection con = (HttpURLConnection) obj.openConnection();
+		//Toast.makeText(this	,"sending request!!", Toast.LENGTH_SHORT).show();
+		// optional default is GET
+		con.setRequestMethod("GET");
+ 
+		//add request header
+		String USER_AGENT = "Mozilla/5.0";
+		con.setRequestProperty("User-Agent", USER_AGENT);
+		
+		int responseCode = con.getResponseCode();
+		System.out.println("\nSending 'GET' request to URL : " + url);
+		System.out.println("Response Code : " + responseCode);
+		Toast.makeText(this	,"sending request!!", Toast.LENGTH_SHORT).show();
+		//Toast.makeText(this	,responseCode, Toast.LENGTH_SHORT).show();
+		
+	}
     
     //process the recognized texts
     @Override
@@ -88,9 +110,16 @@ public class GuardianAngelMain extends Activity implements
             //Toast.makeText(this, spokenText+spokenText+spokenText, Toast.LENGTH_SHORT).show();
             
             if (spokenText.matches(".*danger.*|.*stay away.*|.*help.*|.*save.*")) {
-            	Toast.makeText(this, "Emergency Message Sent!!", Toast.LENGTH_SHORT).show();
+            	//Toast.makeText(this, "Emergency Message Sent!!", Toast.LENGTH_SHORT).show();
             	dangerLevel = 5;
             	sendToDatabase();
+            	try {
+            		
+					sendGet();
+				} catch (Exception e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
             }
         }
         super.onActivityResult(requestCode, resultCode, data);
@@ -260,10 +289,10 @@ public class GuardianAngelMain extends Activity implements
 				zoom = parameters.getMaxZoom();
 		}
 		*/
-		
+
 		//start speech recognition
 		displaySpeechRecognizer();
-		
+
 		mCamera.startSmoothZoom(zoom);
 
 		return false;
@@ -287,7 +316,7 @@ public class GuardianAngelMain extends Activity implements
 	{
 		// TODO Auto-generated method stub
 	}
-	
+
 	private void sendToDatabase() {
 		try {
 			Map<String, Object> toSet = new HashMap<String, Object>();
@@ -301,7 +330,7 @@ public class GuardianAngelMain extends Activity implements
 			Toast.makeText(this, "sending data failed", Toast.LENGTH_SHORT).show();
 		}
 	};
-	
+
 	@Override
 	public boolean onSingleTapUp(MotionEvent e) 
 	{
@@ -326,37 +355,37 @@ public class GuardianAngelMain extends Activity implements
 		mLatitude = loc.getLatitude();
 		mLongitude = loc.getLongitude();
 		mAltitude = loc.getAltitude();
-		
+
 	}
 
 	@Override
 	public void onProviderDisabled(String arg0) {
 		// TODO Auto-generated method stub
-		
+
 	}
 
 	@Override
 	public void onProviderEnabled(String arg0) {
 		// TODO Auto-generated method stub
-		
+
 	}
 
 	@Override
 	public void onStatusChanged(String arg0, int arg1, Bundle arg2) {
 		// TODO Auto-generated method stub
-		
+
 	}
 
 	@Override
 	public void onAccuracyChanged(Sensor arg0, int arg1) {
 		// TODO Auto-generated method stub
-		
+
 	}
 
 	@Override
 	public void onSensorChanged(SensorEvent arg0) {
 		// TODO Auto-generated method stub
-		
+
 	}
 
     
