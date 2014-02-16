@@ -1,9 +1,11 @@
 package org.project.guardianangel;
 
+import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 import android.app.Activity;
@@ -18,9 +20,11 @@ import android.location.Criteria;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.provider.Settings.Secure;
 import android.speech.RecognizerIntent;
+import android.speech.tts.TextToSpeech;
 import android.util.Log;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
@@ -33,10 +37,12 @@ import android.widget.Toast;
 import com.firebase.client.Firebase;
 
 public class GuardianAngelMain extends Activity implements 
-                                                    GestureDetector.OnGestureListener, 
+                                                    GestureDetector.OnGestureListener,
                                                     Camera.OnZoomChangeListener,
                                                     SensorEventListener,
                                                     LocationListener {
+	//text to speech
+	private TextToSpeech ttobj;
 
     public static String TAG = "GuardianCam";
     public static float FULL_DISTANCE = 8000.0f;
@@ -46,13 +52,23 @@ public class GuardianAngelMain extends Activity implements
     //Sound and Noise Metric
     private NoiseMetric nMetric;
     
-    //sensor and location variables
+    //sensor variables
     private SensorManager mSensorManager;
+    private Sensor mAccelerometer;
+    private float[] mLastValues = new float[] { 0.0f, 0.0f, 0.0f };
+    private float mLowPassFilter = 0.09f;
+    //location variables
     private LocationManager mLocationManager;
     private String mLocationProvider;
     private double mLatitude, mLongitude, mAltitude;
     //danger level
     private int dangerLevel = 1;
+    
+    //motion queue
+    private int runQueueSize = 0;
+    private int walkQueueSize = 0;
+    private static int SIZELIMIT = 200;
+    private static int QUOTIENT = 80;
     
     //camera variables
     private SurfaceView mPreview;
@@ -80,6 +96,38 @@ public class GuardianAngelMain extends Activity implements
         startActivityForResult(intent, SPEECH_REQUEST);
     }
 
+    private class AsyncHTTPRequest extends AsyncTask<URL, String, Integer> {
+
+		protected Integer doInBackground(URL... url) {
+			int rCode = -1;
+			try {
+				HttpURLConnection con = (HttpURLConnection) url[0].openConnection();
+				con.setRequestMethod("POST");
+		        
+		        //add request header
+		        String USER_AGENT = "Mozilla/5.0";
+		        con.setRequestProperty("User-Agent", USER_AGENT);
+				
+		        int responseCode = con.getResponseCode();
+		        System.out.println("\nSending 'POST' request to URL : " + url);
+		        System.out.println("Response Code : " + responseCode);
+		        rCode = responseCode;
+				
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			
+			return rCode;
+		}
+    	
+		protected void onPostExecute(Integer result) {
+	        super.onPostExecute(result);
+	        Log.d("HTTP Request","Request made!!!");
+	    }
+		
+    }
+    
     //send request to the server
     private void sendGet() throws Exception {
         String url = "http://guardianangel.herokuapp.com/inform/"+android_id.toString();
@@ -87,20 +135,8 @@ public class GuardianAngelMain extends Activity implements
         Toast.makeText(this	,"Emergency Contact Initialized!", Toast.LENGTH_SHORT).show();
         
         URL obj = new URL(url);
-        HttpURLConnection con = (HttpURLConnection) obj.openConnection();
-        //Toast.makeText(this	,"sending request!!", Toast.LENGTH_SHORT).show();
-        // optional default is GET
-        con.setRequestMethod("GET");
         
-        //add request header
-        String USER_AGENT = "Mozilla/5.0";
-        con.setRequestProperty("User-Agent", USER_AGENT);
-		
-        int responseCode = con.getResponseCode();
-        System.out.println("\nSending 'GET' request to URL : " + url);
-        System.out.println("Response Code : " + responseCode);
-        
-        Toast.makeText(this	,"Emergency Contact Status:" + responseCode, Toast.LENGTH_SHORT).show();
+        new AsyncHTTPRequest().execute(obj);
 		
     }
     
@@ -126,6 +162,7 @@ public class GuardianAngelMain extends Activity implements
                     // TODO Auto-generated catch block
                     e.printStackTrace();
                 }
+            	ttobj.speak("Emergency Contact Message Sent.", TextToSpeech.QUEUE_FLUSH, null);
             }
         }
         super.onActivityResult(requestCode, resultCode, data);
@@ -150,6 +187,7 @@ public class GuardianAngelMain extends Activity implements
         //sensor manager
         mSensorManager = (SensorManager)getSystemService(SENSOR_SERVICE);
         //location manager
+        mAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
         mLocationManager = (LocationManager)getSystemService(Context.LOCATION_SERVICE);
         
         //set up the criteria
@@ -172,6 +210,17 @@ public class GuardianAngelMain extends Activity implements
         	
             Toast.makeText(this, "database connection error!", Toast.LENGTH_SHORT).show();
         }
+        
+        //set up text to speech
+        ttobj=new TextToSpeech(getApplicationContext(), 
+        	      new TextToSpeech.OnInitListener() {
+        	      @Override
+        	      public void onInit(int status) {
+        	         if(status != TextToSpeech.ERROR){
+        	             ttobj.setLanguage(Locale.UK);
+        	            }				
+        	         }
+        	      });
     }
 
     //activity status callbacks
@@ -179,7 +228,7 @@ public class GuardianAngelMain extends Activity implements
     public void onResume() 
     {
         super.onResume();
-        
+        mSensorManager.registerListener(this, mAccelerometer, SensorManager.SENSOR_DELAY_GAME);
         mLocationManager.requestLocationUpdates(mLocationProvider, 400, 0.01f, this);
         
         mCamera = Camera.open();
@@ -196,9 +245,12 @@ public class GuardianAngelMain extends Activity implements
         mCamera.release();
         mCamera = null;
         mInPreview = false;
-        
+        mSensorManager.unregisterListener(this);
         mLocationManager.removeUpdates(this);
-        
+        if(ttobj !=null) {
+            ttobj.stop();
+            ttobj.shutdown();
+        }
         super.onPause();
     }
 
@@ -235,11 +287,9 @@ public class GuardianAngelMain extends Activity implements
             {
                 mCamera.startPreview();
                 mInPreview = true;
-            
             }
     }
-
-    
+   
     SurfaceHolder.Callback surfaceCallback = new SurfaceHolder.Callback() {
             public void surfaceCreated( SurfaceHolder holder ) 
             {
@@ -248,10 +298,10 @@ public class GuardianAngelMain extends Activity implements
 
             public void surfaceChanged( SurfaceHolder holder, int format, int width, int height ) 
             {
-        	surfWidth = width;
-        	surfHeight = height;
-        	Log.d("Surface Changed!!!!!", "Surface Changed!!!");
-        	initPreview(width, height);
+            	surfWidth = width;
+            	surfHeight = height;
+            	Log.d("Surface Changed!!!!!", "Surface Changed!!!");
+            	initPreview(width, height);
                 startPreview();
             }
 
@@ -278,30 +328,28 @@ public class GuardianAngelMain extends Activity implements
     @Override
 	public boolean onFling( MotionEvent e1, MotionEvent e2, float velocityX, float velocityY ) 
     {
-        Camera.Parameters parameters = mCamera.getParameters();
-        int zoom = parameters.getZoom();
-
-        /*
-          if ( velocityX < 0.0f )
-          {
-          zoom -= 10;
-          if ( zoom < 0 )
-          zoom = 0;
-          }
-          else if ( velocityX > 0.0f )
-          {
-          zoom += 10;
-          if ( zoom > parameters.getMaxZoom() )
-          zoom = parameters.getMaxZoom();
-          }
-        */
-
         //start speech recognition
-        displaySpeechRecognizer();
-
-        mCamera.startSmoothZoom(zoom);
-
-        return false;
+    	Log.d("x swipe:",Float.toString(velocityX));
+    	Log.d("y swipe:",Float.toString(velocityY));
+    	
+    	//detect swipe forward:speech
+    	
+    	if (velocityX > 0 && velocityX > velocityY) {
+    		displaySpeechRecognizer();
+    	} else if (velocityX < 0 && (-velocityX) > velocityY) {
+    		dangerLevel = 5;
+        	sendToDatabase();
+        	try {
+        		sendGet();
+            } catch (Exception e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            }
+        	ttobj.speak("Emergency Contact Message Sent.", TextToSpeech.QUEUE_FLUSH, null);
+    	}
+    	
+        return true;
+        
     }
 
     @Override
@@ -330,10 +378,11 @@ public class GuardianAngelMain extends Activity implements
             val.put("dangerLevel", dangerLevel);
             val.put("latitude", mLatitude);
             val.put("longitude", mLongitude);
+            Toast.makeText(this, "Data Sent", Toast.LENGTH_SHORT).show();
             toSet.put(android_id, val);
             fireref.setValue(val);
         } catch (Throwable t) {
-            Toast.makeText(this, "sending data failed", Toast.LENGTH_SHORT).show();
+            //Toast.makeText(this, "sending data failed", Toast.LENGTH_SHORT).show();
         }
     };
 
@@ -341,10 +390,12 @@ public class GuardianAngelMain extends Activity implements
 	public boolean onSingleTapUp(MotionEvent e) 
     {
         //tap to show user ID
-        Toast toast = Toast.makeText(this, 
-                                     "Your User ID is:"+android_id
-                                     , Toast.LENGTH_SHORT);
+        String tx = "Your User ID is:"+android_id;
+    	Toast toast = Toast.makeText(this, 
+                                     tx
+                                     , Toast.LENGTH_LONG);
         toast.show();
+        ttobj.speak(tx, TextToSpeech.QUEUE_FLUSH, null);
         //sendToDatabase();
         return false;
     }
@@ -361,7 +412,8 @@ public class GuardianAngelMain extends Activity implements
         mLatitude = loc.getLatitude();
         mLongitude = loc.getLongitude();
         mAltitude = loc.getAltitude();
-
+        Log.d("Location Update","Location Updated");
+        this.sendToDatabase();
     }
 
     @Override
@@ -389,9 +441,80 @@ public class GuardianAngelMain extends Activity implements
     }
 
     @Override
-	public void onSensorChanged(SensorEvent arg0) {
-        // TODO Auto-generated method stub
-
+	public void onSensorChanged(SensorEvent event) {
+    	//Log.d("Sensor","Sensor Updated!!!!");
+		float diffX = mLastValues[0]-event.values[0];
+		if ( diffX < mLowPassFilter )
+			diffX = 0.0f;
+		
+		float diffY = mLastValues[1]-event.values[1];
+		if ( diffY < mLowPassFilter )
+			diffY = 0.0f;
+		
+		float diffZ = mLastValues[2]-event.values[2];
+		if ( diffZ < mLowPassFilter )
+			diffZ = 0.0f;
+		
+		mLastValues[0] = event.values[0];
+		mLastValues[1] = event.values[1];
+		mLastValues[2] = event.values[2];
+    	
+		//Log.d("AccelerationX",Float.toString(diffX));
+		
+		if ((this.runQueueSize + this.walkQueueSize) < this.SIZELIMIT) {
+			if (Math.abs(diffX) > 1) {
+				this.runQueueSize++;
+			} else {
+				this.walkQueueSize++;
+			}
+		} else {
+			this.runQueueSize = 0;
+			this.walkQueueSize = 0;
+			//if 80% of the time the person is running, send out the warning
+			if ((this.runQueueSize - this.walkQueueSize) >= this.QUOTIENT) {
+				dangerLevel = 5;
+	        	sendToDatabase();
+	        	try {
+	                sendGet();
+	            } catch (Exception e) {
+	                e.printStackTrace();
+	            }
+	        	ttobj.speak("Emergency Contact Message Sent.", TextToSpeech.QUEUE_FLUSH, null);
+			} else {
+				Log.d("Danger Level","Within Safe Range");
+			}
+			
+		}
+		//Log.d("AccelerationX",Float.toString(diffY));
+		//Log.d("AccelerationX",Float.toString(diffZ));
+		//Log.d("AccelerationY",Float.toString(mLastValues[0]));
+		//Log.d("AccelerationY",Float.toString(mLastValues[1]));
+		//Log.d("AccelerationZ",Float.toString(mLastValues[2]));
+		
+		/*if ((mLastValues[0] > 6 && mLastValues[0] < 9) || (mLastValues[1] > 6 && mLastValues[1] < 9)) {
+			dangerLevel = 5;
+        	sendToDatabase();
+        	try {
+                sendGet();
+            } catch (Exception e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            }
+		}*/
+		
+    	//acquire sound level
+    	/*
+		try {
+			nMetric.start();
+			//double db = nMetric.getAmplitude();
+			//Log.d("Noise Val", Double.toString(db));
+			//nMetric.stop();
+    	} catch (IllegalStateException e) {
+			e.printStackTrace();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}*/
+    	
     }
 
     

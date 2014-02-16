@@ -3,6 +3,6 @@
     
     <constraints
         camera="true"
-        network="true"/>
+    />
     	
 </trigger>
