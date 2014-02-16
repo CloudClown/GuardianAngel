@@ -1,4 +1,4 @@
-Guardian Angel Android Glass App
+Guardian Angel Glass Ware
 =====
 **Guardian Angel** is a Google Glass platform designed to detect dangererous environments, and provies a quick way to notify friends, family, and authorities.
 
