@@ -36,13 +36,27 @@ import android.widget.Toast;
 
 import com.firebase.client.Firebase;
 
+//audio tracking
+import android.media.AudioFormat;
+import android.media.AudioRecord;
+import android.media.MediaRecorder.AudioSource;
+
 public class GuardianAngelMain extends Activity implements 
                                                     GestureDetector.OnGestureListener,
                                                     Camera.OnZoomChangeListener,
                                                     SensorEventListener,
                                                     LocationListener {
+	//audio variables
+	private static final int SAMPLING_RATE = 44100;
+	//private WaveformView mWaveformView;
+	
+	//private RecordingThread mRecordingThread;
+    private int mBufferSize;
+    private short[] mAudioBuffer;
+    private String mDecibelFormat;
+	
 	//text to speech
-	private TextToSpeech ttobj;
+	public TextToSpeech ttobj;
 
     public static String TAG = "GuardianCam";
     public static float FULL_DISTANCE = 8000.0f;
@@ -145,16 +159,15 @@ public class GuardianAngelMain extends Activity implements
     protected void onActivityResult(int requestCode, int resultCode,
                                         Intent data) {
         if (requestCode == SPEECH_REQUEST && resultCode == RESULT_OK) {
-            List<String> results = data.getStringArrayListExtra(
-                                                                RecognizerIntent.EXTRA_RESULTS);
+            List<String> results = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
             String spokenText = results.get(0);
             // Do something with spokenText.
             //Toast.makeText(this, spokenText+spokenText+spokenText, Toast.LENGTH_SHORT).show();
             
             if (spokenText.matches(".*danger.*|.*stay away.*|.*help.*|.*save.*")) {
-            	//Toast.makeText(this, "Emergency Message Sent!!", Toast.LENGTH_SHORT).show();
+            	Toast.makeText(this, "Speeech Message Sent!!", Toast.LENGTH_SHORT).show();
             	dangerLevel = 5;
-            	sendToDatabase();
+            	sendToDatabase(spokenText, true);
             	try {
             		
                     sendGet();
@@ -335,17 +348,28 @@ public class GuardianAngelMain extends Activity implements
     	//detect swipe forward:speech
     	
     	if (velocityX > 0 && velocityX > velocityY) {
-    		displaySpeechRecognizer();
+    		if (dangerLevel != 5) {
+    			displaySpeechRecognizer();
+    		} else {
+    			//toggle to safe mode
+    			dangerLevel = 1;
+    			sendToDatabase("I'm safe and happy!", true);
+    		}
     	} else if (velocityX < 0 && (-velocityX) > velocityY) {
-    		dangerLevel = 5;
-        	sendToDatabase();
-        	try {
-        		sendGet();
-            } catch (Exception e) {
-                // TODO Auto-generated catch block
-                e.printStackTrace();
-            }
-        	ttobj.speak("Emergency Contact Message Sent.", TextToSpeech.QUEUE_FLUSH, null);
+    		if (dangerLevel != 5) {
+    			dangerLevel = 5;
+    			sendToDatabase("This is a hostile area.", true);
+    			try {
+    				sendGet();
+    			} catch (Exception e) {
+    				// TODO Auto-generated catch block
+    				e.printStackTrace();
+    			}
+    			ttobj.speak("Emergency Contact Message Sent.", TextToSpeech.QUEUE_FLUSH, null);
+    		} else {
+    			dangerLevel = 1;
+    			sendToDatabase("I'm safe and happy!", true);
+    		}
     	}
     	
         return true;
@@ -371,18 +395,17 @@ public class GuardianAngelMain extends Activity implements
         // TODO Auto-generated method stub
     }
 
-    private void sendToDatabase() {
+    private void sendToDatabase(String text, boolean needText) {
         try {
-            Map<String, Object> toSet = new HashMap<String, Object>();
             Map<String, Object> val = new HashMap<String, Object>();
             val.put("dangerLevel", dangerLevel);
             val.put("latitude", mLatitude);
             val.put("longitude", mLongitude);
-            Toast.makeText(this, "Data Sent", Toast.LENGTH_SHORT).show();
-            toSet.put(android_id, val);
-            fireref.setValue(val);
+            if (needText) val.put("text", text); 
+            Toast.makeText(this, "Syncing...", Toast.LENGTH_SHORT).show();
+            fireref.updateChildren(val);
         } catch (Throwable t) {
-            //Toast.makeText(this, "sending data failed", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "sending data failed", Toast.LENGTH_SHORT).show();
         }
     };
 
@@ -413,7 +436,7 @@ public class GuardianAngelMain extends Activity implements
         mLongitude = loc.getLongitude();
         mAltitude = loc.getAltitude();
         Log.d("Location Update","Location Updated");
-        this.sendToDatabase();
+        this.sendToDatabase("", false);
     }
 
     @Override
@@ -473,7 +496,7 @@ public class GuardianAngelMain extends Activity implements
 			//if 80% of the time the person is running, send out the warning
 			if ((this.runQueueSize - this.walkQueueSize) >= this.QUOTIENT) {
 				dangerLevel = 5;
-	        	sendToDatabase();
+	        	sendToDatabase("I'm running from danger! Help me!",true);
 	        	try {
 	                sendGet();
 	            } catch (Exception e) {
