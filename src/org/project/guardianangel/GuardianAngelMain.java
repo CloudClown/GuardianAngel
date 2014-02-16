@@ -50,12 +50,12 @@ public class GuardianAngelMain extends Activity implements
 	private static final int SAMPLING_RATE = 44100;
 	//private WaveformView mWaveformView;
 	
-	//private RecordingThread mRecordingThread;
+	private RecordingThread mRecordingThread;
     private int mBufferSize;
     private short[] mAudioBuffer;
     private String mDecibelFormat;
-	
-	//text to speech
+    
+    //text to speech
 	public TextToSpeech ttobj;
 
     public static String TAG = "GuardianCam";
@@ -233,7 +233,14 @@ public class GuardianAngelMain extends Activity implements
         	             ttobj.setLanguage(Locale.UK);
         	            }				
         	         }
-        	      });
+        });
+        // Compute the minimum required audio buffer size and allocate the buffer.
+        mBufferSize = AudioRecord.getMinBufferSize(
+        		SAMPLING_RATE, 
+        		AudioFormat.CHANNEL_IN_MONO,
+                AudioFormat.ENCODING_PCM_16BIT);
+        mAudioBuffer = new short[mBufferSize / 2];
+
     }
 
     //activity status callbacks
@@ -244,6 +251,10 @@ public class GuardianAngelMain extends Activity implements
         mSensorManager.registerListener(this, mAccelerometer, SensorManager.SENSOR_DELAY_GAME);
         mLocationManager.requestLocationUpdates(mLocationProvider, 400, 0.01f, this);
         
+        //spawn recording thread
+        mRecordingThread = new RecordingThread();
+        mRecordingThread.start();
+        
         mCamera = Camera.open();
         if (surfWidth != 0 && surfHeight != 0) initPreview(surfWidth, surfHeight);
         startPreview();
@@ -252,6 +263,11 @@ public class GuardianAngelMain extends Activity implements
     @Override
     public void onPause() 
     {
+    	if (mRecordingThread != null) {
+            mRecordingThread.stopRunning();
+            mRecordingThread = null;
+        }
+    	
         if ( mInPreview )
             mCamera.stopPreview();
 
@@ -539,6 +555,63 @@ public class GuardianAngelMain extends Activity implements
 		}*/
     	
     }
-
     
+    private class RecordingThread extends Thread {
+
+        private boolean mShouldContinue = true;
+
+        @Override
+        public void run() {
+            android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_AUDIO);
+
+            AudioRecord record = new AudioRecord(AudioSource.MIC, SAMPLING_RATE,
+                    AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, mBufferSize);
+            record.startRecording();
+
+            while (shouldContinue()) {
+                record.read(mAudioBuffer, 0, mBufferSize / 2);
+                //mWaveformView.updateAudioData(mAudioBuffer);
+                updateDecibelLevel();
+            }
+
+            record.stop();
+            record.release();
+        }
+
+        /**
+         * Gets a value indicating whether the thread should continue running.
+         *
+         * @return true if the thread should continue running or false if it should stop
+         */
+        private synchronized boolean shouldContinue() {
+            return mShouldContinue;
+        }
+
+        /** Notifies the thread that it should stop running at the next opportunity. */
+        public synchronized void stopRunning() {
+            mShouldContinue = false;
+        }
+
+        /**
+         * Computes the decibel level of the current sound buffer and updates the appropriate text
+         * view.
+         */
+        private void updateDecibelLevel() {
+            // Compute the root-mean-squared of the sound buffer and then apply the formula for
+            // computing the decibel level, 20 * log_10(rms). This is an uncalibrated calculation
+            // that assumes no noise in the samples; with 16-bit recording, it can range from
+            // -90 dB to 0 dB.
+            double sum = 0;
+
+            for (short rawSample : mAudioBuffer) {
+                double sample = rawSample / 32768.0;
+                sum += sample * sample;
+            }
+
+            double rms = Math.sqrt(sum / mAudioBuffer.length);
+            final double db = 20 * Math.log10(rms);
+            Log.d("Noise Level", Double.toString(db));
+        }
+    }
 }
+
