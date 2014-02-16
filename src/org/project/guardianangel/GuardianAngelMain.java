@@ -31,6 +31,7 @@ import android.view.MotionEvent;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.WindowManager;
+import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -71,6 +72,8 @@ public class GuardianAngelMain extends Activity implements
     private Sensor mAccelerometer;
     private float[] mLastValues = new float[] { 0.0f, 0.0f, 0.0f };
     private float mLowPassFilter = 0.09f;
+    private float meanAcc = 0;
+    
     //location variables
     private LocationManager mLocationManager;
     private String mLocationProvider;
@@ -81,8 +84,8 @@ public class GuardianAngelMain extends Activity implements
     //motion queue
     private int runQueueSize = 0;
     private int walkQueueSize = 0;
-    private static int SIZELIMIT = 200;
-    private static int QUOTIENT = 80;
+    private static int SIZELIMIT = 100;
+    private static int QUOTIENT = 40;
     
     //camera variables
     private SurfaceView mPreview;
@@ -94,6 +97,9 @@ public class GuardianAngelMain extends Activity implements
     private int surfWidth;
     private int surfHeight;
     private TextView mDecibelView;
+    
+    //image view for status
+    private ImageView statusView;
     
     //gestures
     private GestureDetector mGestureDetector;
@@ -190,6 +196,7 @@ public class GuardianAngelMain extends Activity implements
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         mPreview = (SurfaceView)findViewById(R.id.preview);
         mDecibelView = (TextView) findViewById(R.id.decibel_view);
+        statusView = (ImageView) findViewById(R.id.status_view);
         mPreviewHolder = mPreview.getHolder();
         mPreviewHolder.addCallback(surfaceCallback);
         
@@ -500,19 +507,20 @@ public class GuardianAngelMain extends Activity implements
 		mLastValues[1] = event.values[1];
 		mLastValues[2] = event.values[2];
     	
-		//Log.d("AccelerationX",Float.toString(diffX));
+		//this.mDecibelView.setText("AccelerationX:"+Float.toString(diffX));
 		
 		if ((this.runQueueSize + this.walkQueueSize) < this.SIZELIMIT) {
+			this.meanAcc += Math.abs(diffX);
 			if (Math.abs(diffX) > 1) {
 				this.runQueueSize++;
 			} else {
 				this.walkQueueSize++;
 			}
 		} else {
-			this.runQueueSize = 0;
-			this.walkQueueSize = 0;
+			meanAcc = meanAcc/this.SIZELIMIT;
+			//this.mDecibelView.setText("meanAcc:"+Float.toString(meanAcc));
 			//if 80% of the time the person is running, send out the warning
-			if ((this.runQueueSize - this.walkQueueSize) >= this.QUOTIENT) {
+			if (meanAcc > 0.5f && dangerLevel != 5) {
 				dangerLevel = 5;
 	        	sendToDatabase("I'm running from danger! Help me!",true);
 	        	try {
@@ -525,6 +533,9 @@ public class GuardianAngelMain extends Activity implements
 				Log.d("Danger Level","Within Safe Range");
 			}
 			
+			meanAcc = 0;
+			this.runQueueSize = 0;
+			this.walkQueueSize = 0;
 		}
 		//Log.d("AccelerationX",Float.toString(diffY));
 		//Log.d("AccelerationX",Float.toString(diffZ));
@@ -619,7 +630,6 @@ public class GuardianAngelMain extends Activity implements
                 public void run() {
             		//10->10(very loud),50->1(very weak)
             		int result = ((int) -db) - 10;
-            		int result_tmp = result;
             		if (result <= 0) {
             			result = 10;
             		} else if (result >= 40) {
@@ -630,8 +640,18 @@ public class GuardianAngelMain extends Activity implements
             		}
             		
             		mDecibelView.setText("Noise Level:"+Integer.toString(result));
+            		
+            		//update status
+            		if (dangerLevel == 1 && result < 3) {
+            			statusView.setImageResource(R.drawable.safe);
+            		} else if (dangerLevel == 1 && result >= 3) {
+            			statusView.setImageResource(R.drawable.potential);
+            		} else if (dangerLevel == 5) {
+            			statusView.setImageResource(R.drawable.danger);
+            		}
             	}
             });
+            
         }
     }
 }
