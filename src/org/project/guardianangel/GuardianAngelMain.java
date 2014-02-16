@@ -93,6 +93,7 @@ public class GuardianAngelMain extends Activity implements
     private TextView mZoomLevelView;
     private int surfWidth;
     private int surfHeight;
+    private TextView mDecibelView;
     
     //gestures
     private GestureDetector mGestureDetector;
@@ -188,6 +189,7 @@ public class GuardianAngelMain extends Activity implements
         
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         mPreview = (SurfaceView)findViewById(R.id.preview);
+        mDecibelView = (TextView) findViewById(R.id.decibel_view);
         mPreviewHolder = mPreview.getHolder();
         mPreviewHolder.addCallback(surfaceCallback);
         
@@ -611,6 +613,25 @@ public class GuardianAngelMain extends Activity implements
             double rms = Math.sqrt(sum / mAudioBuffer.length);
             final double db = 20 * Math.log10(rms);
             Log.d("Noise Level", Double.toString(db));
+            
+            mDecibelView.post(new Runnable() {
+            	@Override
+                public void run() {
+            		//10->10(very loud),50->1(very weak)
+            		int result = ((int) -db) - 10;
+            		int result_tmp = result;
+            		if (result <= 0) {
+            			result = 10;
+            		} else if (result >= 40) {
+            			result = 1;
+            		} else {
+            			
+            			result = (int) (((result-40)*(-2.5))/10);
+            		}
+            		
+            		mDecibelView.setText("Noise Level:"+Integer.toString(result));
+            	}
+            });
         }
     }
 }
