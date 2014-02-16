@@ -12,6 +12,10 @@ A quick voice command or gesture will alert nearby citizens, police, family, and
 
 Screenshots
 -----
+[![screenshot1](https://github.com/CloudClown/GuardianAngel/blob/master/examples/example1_thumb.png?raw=true "Guardian Angel Screenshot 1")](https://github.com/CloudClown/GuardianAngel/blob/master/examples/example1.png)
+[![screenshot2](https://github.com/CloudClown/GuardianAngel/blob/master/examples/example2_thumb.png?raw=true "Guardian Angel Screenshot 2")](https://github.com/CloudClown/GuardianAngel/blob/master/examples/example2.png)
+[![screenshot3](https://github.com/CloudClown/GuardianAngel/blob/master/examples/example3_thumb.png?raw=true "Guardian Angel Screenshot 3")](https://github.com/CloudClown/GuardianAngel/blob/master/examples/example3.png)
+[![screenshot3](https://github.com/CloudClown/GuardianAngel/blob/master/examples/example3_thumb.png?raw=true "Guardian Angel Screenshot 4")](https://github.com/CloudClown/GuardianAngel/blob/master/examples/example3.png)
 
 Created by
 -----
