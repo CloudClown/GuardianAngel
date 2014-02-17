@@ -19,6 +19,9 @@ Screenshots
 [![screenshot2](https://github.com/CloudClown/GuardianAngel/blob/master/examples/example2_thumb.png?raw=true "Guardian Angel Screenshot 2")](https://github.com/CloudClown/GuardianAngel/blob/master/examples/example2.png)
 [![screenshot3](https://github.com/CloudClown/GuardianAngel/blob/master/examples/example3_thumb.png?raw=true "Guardian Angel Screenshot 3")](https://github.com/CloudClown/GuardianAngel/blob/master/examples/example3.png)
 [![screenshot3](https://github.com/CloudClown/GuardianAngel/blob/master/examples/example4_thumb.png?raw=true "Guardian Angel Screenshot 4")](https://github.com/CloudClown/GuardianAngel/blob/master/examples/example4.png)
+[![screenshot3](https://github.com/CloudClown/GuardianAngel/blob/master/examples/email_thumb.png.png?raw=true "Guardian Angel Screenshot 5")](https://github.com/CloudClown/GuardianAngel/blob/master/examples/email.png)
+[![screenshot3](https://github.com/CloudClown/GuardianAngel/blob/master/examples/text_thumb.png?raw=true "Guardian Angel Screenshot 6")](https://github.com/CloudClown/GuardianAngel/blob/master/examples/text.png)
+
 
 Created by
 -----
